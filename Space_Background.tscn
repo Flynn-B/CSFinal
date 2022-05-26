@@ -1,0 +1,104 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://icon.png" type="Texture" id=1]
+
+[sub_resource type="Shader" id=1]
+code = "shader_type canvas_item;
+
+uniform float pixels = 45;
+uniform float size = 5.0;
+uniform int OCTAVES  = 4;
+uniform vec2 light_origin = vec2(0.39, 0.39);
+uniform float light_border = 0.4;
+uniform float dither_width = 0.1;
+
+uniform vec4 col1 : hint_color;
+uniform vec4 col2 : hint_color;
+uniform vec4 col3 : hint_color;
+uniform vec4 col4 : hint_color;
+
+float rand(vec2 coord) {
+	coord = mod(coord, vec2(2.0,1.0)*round(size));
+	return fract(sin(dot(coord.xy ,vec2(12.9898,78.233))) * 15.5453);
+}
+
+float noise(vec2 coord){
+	vec2 i = floor(coord);
+	vec2 f = fract(coord);
+		
+	float a = rand(i);
+	float b = rand(i + vec2(1.0, 0.0));
+	float c = rand(i + vec2(0.0, 1.0));
+	float d = rand(i + vec2(1.0, 1.0));
+
+	vec2 cubic = f * f * (3.0 - 2.0 * f);
+
+	return mix(a, b, cubic.x) + (c - a) * cubic.y * (1.0 - cubic.x) + (d - b) * cubic.x * cubic.y;
+}
+
+float fbm(vec2 coord){
+	float value = 0.0;
+	float scale = 0.5;
+
+	for(int i = 0; i < OCTAVES ; i++){
+		value += noise(coord) * scale;
+		coord *= 2.0;
+		scale *= 0.5;
+	}
+	return value;
+}
+
+vec2 spherify(vec2 uv) {
+	vec2 centered= uv *2.0-1.0;
+	float z = sqrt(1.0 - dot(centered.xy, centered.xy));
+	vec2 sphere = centered/(z + 1.0);
+	return sphere * 0.5+0.5;
+}
+
+bool dither(vec2 uv1, vec2 uv2) {
+	return mod(uv1.x+uv2.y,2.0/pixels) <= 1.0 / pixels;
+}
+
+void fragment() {
+	vec2 uv = floor(UV*pixels)/pixels;
+	bool dith = dither(uv, UV);
+	uv = spherify(uv);
+	float n = fbm(uv * size + TIME*vec2(1.0, 0.0));
+	float d = distance(uv, vec2(0.5));
+	float d_light = distance(uv , light_origin);
+	float a = step(d, 0.5);
+	
+	if (d_light > light_border + dither_width || (d_light > light_border && dith)) {
+		n -= 0.6;
+	}
+	
+	vec4 col = col1;
+	if (n < 0.6) {
+		col = col2;
+	}
+	if (n < 0.4) {
+		col = col3;
+	}
+	if (n < 0.1) {
+		col = col4;
+	}
+	
+	COLOR = vec4(col.rgb, a);
+}"
+
+[sub_resource type="ShaderMaterial" id=2]
+shader = SubResource( 1 )
+shader_param/pixels = 45.0
+shader_param/size = 5.0
+shader_param/OCTAVES = 4
+shader_param/light_origin = Vector2( 0.39, 0.39 )
+shader_param/light_border = 0.4
+shader_param/dither_width = 0.1
+shader_param/col1 = Color( 0.0117647, 0.0117647, 0.0117647, 1 )
+shader_param/col2 = Color( 0.168627, 0.337255, 0.298039, 1 )
+shader_param/col3 = Color( 0.0666667, 0.196078, 0.576471, 1 )
+shader_param/col4 = Color( 0.156863, 0.262745, 0.137255, 1 )
+
+[node name="Space_Background" type="Sprite"]
+material = SubResource( 2 )
+texture = ExtResource( 1 )
